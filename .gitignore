@@ -1,0 +1,6 @@
+dados/
+*.csv
+.env
+__pycache__/
+.venv/
+*.pbix
