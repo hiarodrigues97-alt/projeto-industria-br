@@ -319,7 +319,7 @@ def extrair_epe(inicio):
 # ----------------------------------------------------------------------------
 # 5) CARGA NO POSTGRESQL (schema raw)
 # ----------------------------------------------------------------------------
-DB_PADRAO = "postgresql+psycopg2://postgres:novasenha123@localhost:5432/industria"
+DB_PADRAO = "postgresql+psycopg2://postgres:SENHA@localhost:5432/industria"
 SCHEMAS = ["raw", "staging", "marts"]
 
 
