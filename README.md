@@ -90,15 +90,11 @@ Quatro páginas: visão geral, setores, energia × produção e macro.
 
 | Visão geral | Setores |
 |---|---|
-| ![Visão geral](<img width="1437" height="810" alt="pagina1_visao_geral" src="https://github.com/user-attachments/assets/addd2492-3fdf-490d-9be3-cb67039f24c2" />
-) | ![Setores](<img width="1440" height="807" alt="pagina2_setores" src="https://github.com/user-attachments/assets/df21de57-02df-485e-b7bc-cf1a85e4a8c0" />
-) |
+| ![Visão geral](<img width="1437" height="810" alt="pagina1_visao_geral" src="https://github.com/user-attachments/assets/addd2492-3fdf-490d-9be3-cb67039f24c2" />) | ![Setores](<img width="1440" height="807" alt="pagina2_setores" src="https://github.com/user-attachments/assets/df21de57-02df-485e-b7bc-cf1a85e4a8c0" />) |
 
 | Energia × produção | Macro |
 |---|---|
-| ![Energia e produção](<img width="1437" height="807" alt="pagina3_energia_producao" src="https://github.com/user-attachments/assets/8a54b2c1-4a4f-472a-a063-d6d93d81b678" />
-) | ![Macro](<img width="1441" height="810" alt="pagina4_macro" src="https://github.com/user-attachments/assets/fc90d333-267b-4c13-b597-cc62218e37cd" />
-) |
+| ![Energia e produção](<img width="1437" height="807" alt="pagina3_energia_producao" src="https://github.com/user-attachments/assets/8a54b2c1-4a4f-472a-a063-d6d93d81b678" />) | ![Macro](<img width="1441" height="810" alt="pagina4_macro" src="https://github.com/user-attachments/assets/fc90d333-267b-4c13-b597-cc62218e37cd" />) |
 
 
 ## Status e próximos passos
