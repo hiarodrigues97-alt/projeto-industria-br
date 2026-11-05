@@ -8,7 +8,7 @@ Pré-requisitos:
                               -p 5432:5432 -d postgres:16)
 
 Conexão (use variável de ambiente em vez de deixar senha no código):
-    export DATABASE_URL="postgresql+psycopg2://postgres:novasenha123@localhost:5432/industria"
+    export DATABASE_URL="postgresql+psycopg2://postgres:SENHA@localhost:5432/industria"
 
 Uso:
     python pipeline_completo.py                       # extrai tudo e carrega no banco
@@ -31,7 +31,7 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote
 
 import pandas as pd
 import requests
@@ -40,6 +40,15 @@ OUT = Path("dados")
 BRUTOS = OUT / "brutos"
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "Mozilla/5.0 (projeto-portfolio-dados)"})
+
+
+def salvar_csv(obj, caminho, **kw):
+    """Grava CSV; se o arquivo estiver aberto em outro programa (ex.: Excel), explica o motivo."""
+    try:
+        obj.to_csv(caminho, **kw)
+    except PermissionError:
+        raise RuntimeError(f"Não foi possível gravar {caminho}: o arquivo está aberto em outro "
+                           f"programa (Excel, por exemplo). Feche-o e rode de novo.")
 
 
 def get(url, params=None, tentativas=4, timeout=120):
@@ -121,7 +130,7 @@ def sidra_tabela(nome, cfg, inicio):
     col_mes = next(c for c in df.columns if c.startswith("Mês") and "Código" in c)
     df["data"] = pd.to_datetime(df[col_mes], format="%Y%m")
     df["valor"] = pd.to_numeric(df["Valor"], errors="coerce")  # "...", "-", "X" viram NaN
-    df.to_csv(OUT / f"{nome}.csv", index=False, encoding="utf-8")
+    salvar_csv(df, OUT / f"{nome}.csv", index=False, encoding="utf-8")
     print(f"  -> {OUT / (nome + '.csv')}  ({len(df):,} linhas)")
     return df
 
@@ -143,7 +152,7 @@ BCB_SERIES = {
     "ipca_mensal": 433,
     "ipca_12m": 13522,
     "cambio_venda_diario": 1,
-    "ibc_br": 24363,
+    "ibc_br": 24364,  # IBC-Br dessazonalizado (24363 = sem ajuste sazonal)
 }
 
 
@@ -169,7 +178,7 @@ def extrair_bcb(inicio):
     for nome, cod in BCB_SERIES.items():
         try:
             s[nome] = sgs(cod, inicio, fim)
-            s[nome].to_csv(BRUTOS / f"bcb_{nome}.csv", header=["valor"])
+            salvar_csv(s[nome], BRUTOS / f"bcb_{nome}.csv", header=["valor"])
             print(f"[BCB] {nome} ({cod}): {len(s[nome]):,} obs")
         except Exception as e:
             print(f"[BCB] {nome} ({cod}) falhou: {e}")
@@ -186,7 +195,7 @@ def extrair_bcb(inicio):
         "ibc_br": s.get("ibc_br"),
     })
     mensal.index.name = "data"
-    mensal.to_csv(OUT / "bcb_mensal.csv")
+    salvar_csv(mensal, OUT / "bcb_mensal.csv")
     print(f"  -> {OUT / 'bcb_mensal.csv'}")
 
 
@@ -255,7 +264,7 @@ def extrair_ons(inicio):
     tot = pd.concat(acc).groupby(["id_subsistema", "mes"], as_index=False)[["soma", "n"]].sum()
     tot["carga_mwmed"] = tot["soma"] / tot["n"]
     tot = tot[tot["mes"].dt.year >= inicio].drop(columns=["soma", "n"])
-    tot.to_csv(OUT / "ons_carga_mensal.csv", index=False)
+    salvar_csv(tot, OUT / "ons_carga_mensal.csv", index=False)
     print(f"  -> {OUT / 'ons_carga_mensal.csv'}  ({len(tot):,} linhas)")
 
 
@@ -282,7 +291,7 @@ def extrair_epe(inicio):
         links = re.findall(r'href=["\']([^"\']+\.(?:xlsx?|csv))["\']', html, re.I)
         for l in sorted(set(links)):
             url = urljoin(pag, l)
-            destino = pasta / url.rsplit("/", 1)[-1].split("?")[0]
+            destino = pasta / unquote(url.rsplit("/", 1)[-1].split("?")[0])
             try:
                 destino.write_bytes(get(url, timeout=300).content)
                 baixados.append(destino)
@@ -390,8 +399,31 @@ def ler_csv(path):
     return pd.read_csv(path, parse_dates=["data"] if "data" in cab else False)
 
 
+def recriar_marts(engine):
+    """As views do marts dependem das tabelas raw. Como cada carga recria as tabelas raw,
+    as views são removidas antes e recriadas depois (sql/views_marts.sql)."""
+    from sqlalchemy import text
+    with engine.begin() as c:
+        c.execute(text("DROP SCHEMA IF EXISTS marts CASCADE"))
+        c.execute(text("CREATE SCHEMA marts"))
+
+
+def criar_views(engine):
+    arq = Path(__file__).resolve().parent / "sql" / "views_marts.sql"
+    if not arq.exists():
+        print(f"[DB] {arq} não encontrado: crie as views manualmente no banco.")
+        return
+    try:
+        with engine.begin() as c:
+            c.exec_driver_sql(arq.read_text(encoding="utf-8"))
+        print("[DB] views do schema marts recriadas (sql/views_marts.sql)")
+    except Exception as e:
+        print(f"[DB] não foi possível criar as views: {erro_legivel(e)}")
+
+
 def carregar_tudo(db_url):
     engine = conectar(db_url)
+    recriar_marts(engine)
     # 1) tabelas principais geradas na extração
     for nome in ["pimpf_brasil", "pimpf_uf", "bcb_mensal", "ons_carga_mensal"]:
         f = OUT / f"{nome}.csv"
@@ -416,7 +448,8 @@ def carregar_tudo(db_url):
             continue
         for aba, d in abas.items():
             d.columns = [f"col_{i}" for i in range(d.shape[1])]
-            carregar_tabela(engine, d, f"epe_{f.stem}_{aba}")
+            carregar_tabela(engine, d, f"epe_{norm_nome(unquote(f.stem), 28)}_{norm_nome(aba, 28)}")
+    criar_views(engine)
     # resumo
     from sqlalchemy import text
     with engine.connect() as c:
