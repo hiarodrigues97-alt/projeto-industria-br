@@ -44,12 +44,26 @@ O schema `staging` está criado e reservado para a etapa de transformação com 
 
 ```
 .
-├── pipeline_completo.py   extração das fontes e carga no schema raw
-├── sql/views_marts.sql    views do schema marts consumidas pelo Power BI
-├── docs/medidas_dax.md    medidas DAX do dashboard
+├── main.py                    ponto de entrada (CLI): orquestra extração e carga
+├── pipeline/
+│   ├── config.py              caminhos, tabelas do SIDRA, séries do BCB, ONS, EPE e banco
+│   ├── utils.py               HTTP com retry, gravação de CSV, normalização de nomes e datas
+│   ├── extracao/
+│   │   ├── ibge.py            PIM-PF via SIDRA (metadados, blocos de períodos)
+│   │   ├── bcb.py             séries do SGS em blocos de anos
+│   │   ├── ons.py             carga de energia agregada para média mensal
+│   │   └── epe.py             download e inspeção das planilhas de consumo
+│   └── carga/
+│       └── postgres.py        schema raw, recriação das views do marts e log de carga
+├── sql/views_marts.sql        views do schema marts consumidas pelo Power BI
+├── tests/                     testes unitários (sem internet nem banco)
+├── docs/medidas_dax.md        medidas DAX do dashboard
 ├── requirements.txt
 └── README.md
 ```
+
+Cada módulo tem uma responsabilidade: para incluir uma nova fonte, basta criar um arquivo em
+`pipeline/extracao/` e registrá-lo no dicionário `FONTES` do `main.py`.
 
 ## Como rodar
 
@@ -70,11 +84,19 @@ O schema `staging` está criado e reservado para a etapa de transformação com 
    ```
 4. Execute o pipeline (extrai as fontes e carrega o schema raw; o banco e os schemas são criados se não existirem):
    ```
-   python pipeline_completo.py
+   python main.py
    ```
    Opções úteis: `--modo extrair`, `--modo carregar`, `--fontes bcb sidra` e `--inicio 2012`.
 5. Execute `sql/views_marts.sql` no banco para criar as views do schema marts.
 6. No Power BI Desktop, use **Obter dados → Banco de dados PostgreSQL**, informe o servidor e o banco `industria` e selecione as views do schema `marts`.
+
+## Testes
+
+Testes unitários com respostas simuladas, então rodam sem internet e sem banco:
+
+```
+python -m unittest discover -s tests -t . -v
+```
 
 ## Decisões técnicas
 
@@ -82,6 +104,7 @@ O schema `staging` está criado e reservado para a etapa de transformação com 
 - **Consultas em blocos.** O SIDRA limita cada consulta a 100 mil valores e as séries diárias do SGS têm limite de janela. A extração divide os períodos em blocos.
 - **Camada raw preservada.** As tabelas raw são cópias fiéis das fontes e são recarregadas por completo a cada execução, o que torna a carga repetível.
 - **Agregação da carga do ONS.** A carga é agregada para média mensal por subsistema antes de ir para o banco.
+- **Código modular.** Configuração, utilidades, extração por fonte e carga ficam em módulos separados, o que facilita testar e incluir novas fontes.
 - **Registro de carga.** A tabela `raw._carga_log` guarda quantas linhas entraram em cada tabela e quando.
 
 ## Dashboard
@@ -90,12 +113,15 @@ Quatro páginas: visão geral, setores, energia × produção e macro.
 
 | Visão geral | Setores |
 |---|---|
-| <img width="1437" alt="pagina1_visao_geral" src="https://github.com/user-attachments/assets/addd2492-3fdf-490d-9be3-cb67039f24c2" /> | <img width="1440" alt="pagina2_setores" src="https://github.com/user-attachments/assets/df21de57-02df-485e-b7bc-cf1a85e4a8c0" /> |
+| ![Visão geral](docs/pagina1_visao_geral.png) | ![Setores](docs/pagina2_setores.png) |
 
 | Energia × produção | Macro |
 |---|---|
-| <img width="1437" alt="pagina3_energia_producao" src="https://github.com/user-attachments/assets/8a54b2c1-4a4f-472a-a063-d6d93d81b678" /> | <img width="1441" alt="pagina4_macro" src="https://github.com/user-attachments/assets/fc90d333-267b-4c13-b597-cc62218e37cd" /> |
+| ![Energia e produção](docs/pagina3_energia_producao.png) | ![Macro](docs/pagina4_macro.png) |
 
+## Principais achados
+
+<!-- Escreva aqui 2 ou 3 achados reais do seu dashboard, cada um em uma frase, com número. -->
 
 ## Status e próximos passos
 
@@ -109,6 +135,6 @@ Quatro páginas: visão geral, setores, energia × produção e macro.
 
 ## Autor
 
-[Hiã Henrique Rodrigues] · [LinkedIn](www.linkedin.com/in/hiã-henrique-rodrigues-941552207)
+[Seu nome] · [LinkedIn](https://www.linkedin.com/in/SEU_PERFIL)
 
 Dados: IBGE, Banco Central do Brasil, ONS e EPE.

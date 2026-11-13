@@ -67,5 +67,7 @@ SELECT DISTINCT
        split_part(atividade, ' ', 1) AS cnae,
        CASE WHEN atividade_codigo = '129314' THEN 'Indústria geral'
             WHEN atividade_codigo IN ('129315', '129316') THEN 'Seção'
-            ELSE 'Divisão da transformação' END AS nivel
+            ELSE 'Divisão da transformação' END AS nivel,
+       upper(left(regexp_replace(regexp_replace(atividade, '^[0-9.]+\s+', ''), '^Fabricação (de |d[oa]s? )?', ''), 1))
+         || substr(regexp_replace(regexp_replace(atividade, '^[0-9.]+\s+', ''), '^Fabricação (de |d[oa]s? )?', ''), 2) AS atividade_curta
 FROM marts.fato_pimpf_brasil;

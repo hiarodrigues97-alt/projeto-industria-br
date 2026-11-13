@@ -1,0 +1,15 @@
+# Dados gerados pela extração
+dados/
+*.csv
+*.parquet
+*.xls
+*.xlsx
+
+# Credenciais e ambiente
+.env
+.venv/
+venv/
+__pycache__/
+
+# Power BI (guarda cópia dos dados importados)
+*.pbix
